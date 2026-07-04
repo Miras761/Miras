@@ -7,11 +7,11 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AppProvider, useAppContext } from './context';
-import { PublicLayout } from './layouts/PublicLayout';
+import { MobileLayout } from './layouts/MobileLayout';
 import { VendorLayout } from './layouts/VendorLayout';
 import { Home } from './pages/Home';
 import { Cart } from './pages/Cart';
-import { Auth } from './pages/Auth';
+import { Profile } from './pages/Profile';
 import { ProductDetail } from './pages/ProductDetail';
 import { VendorDashboard } from './pages/VendorDashboard';
 import { VendorProducts } from './pages/VendorProducts';
@@ -19,68 +19,60 @@ import { VendorOrders } from './pages/VendorOrders';
 
 const PrivateVendorRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAppContext();
-  if (!user) return <Navigate to="/auth" />;
+  if (!user) return <Navigate to="/profile" />;
   if (user.role !== 'vendor') return <Navigate to="/" />;
-  return <>{children}</>;
-};
-
-const AuthRedirect = ({ children }: { children: React.ReactNode }) => {
-  const { user } = useAppContext();
-  if (user) {
-    return <Navigate to={user.role === 'vendor' ? '/vendor' : '/'} />;
-  }
   return <>{children}</>;
 };
 
 export default function App() {
   return (
-    <AppProvider>
-      <Router>
-        <Routes>
-          {/* Public Routes with Navbar */}
-          <Route element={<PublicLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/product/:id" element={<ProductDetail />} />
-            <Route path="/cart" element={<Cart />} />
-          </Route>
-          
-          {/* Auth Route without Layout */}
-          <Route path="/auth" element={
-            <AuthRedirect>
-              <Auth />
-            </AuthRedirect>
-          } />
+    <div className="bg-slate-200 min-h-screen flex items-center justify-center font-sans">
+      <div className="w-full max-w-md h-[100dvh] bg-slate-50 relative overflow-hidden sm:shadow-2xl sm:rounded-[2.5rem] sm:h-[844px] flex flex-col">
+        <AppProvider>
+          <Router>
+            <Routes>
+              {/* Mobile Routes with Bottom Tab Bar */}
+              <Route element={<MobileLayout />}>
+                <Route path="/" element={<Home />} />
+                <Route path="/catalog" element={<Home />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/profile" element={<Profile />} />
+              </Route>
+              
+              {/* Product Detail - Full Screen */}
+              <Route path="/product/:id" element={<ProductDetail />} />
 
-          {/* Vendor Routes with Sidebar */}
-          <Route path="/vendor" element={
-            <PrivateVendorRoute>
-              <VendorLayout />
-            </PrivateVendorRoute>
-          }>
-            <Route index element={<VendorDashboard />} />
-            <Route path="products" element={<VendorProducts />} />
-            <Route path="orders" element={<VendorOrders />} />
-          </Route>
-        </Routes>
-      </Router>
-      <Toaster 
-        position="bottom-right"
-        toastOptions={{
-          className: '!rounded-xl !border !border-slate-100 !shadow-lg',
-          duration: 4000,
-          style: {
-            background: '#fff',
-            color: '#0f172a',
-            fontWeight: 500,
-          },
-          success: {
-            iconTheme: {
-              primary: '#f97316', // orange-500
-              secondary: '#fff',
-            },
-          },
-        }} 
-      />
-    </AppProvider>
+              {/* Vendor Routes */}
+              <Route path="/vendor" element={
+                <PrivateVendorRoute>
+                  <VendorLayout />
+                </PrivateVendorRoute>
+              }>
+                <Route index element={<VendorDashboard />} />
+                <Route path="products" element={<VendorProducts />} />
+                <Route path="orders" element={<VendorOrders />} />
+              </Route>
+            </Routes>
+          </Router>
+          <Toaster 
+            position="top-center"
+            toastOptions={{
+              className: '!rounded-2xl !shadow-lg !font-medium !text-sm mt-4',
+              duration: 3000,
+              style: {
+                background: '#334155',
+                color: '#fff',
+              },
+              success: {
+                iconTheme: {
+                  primary: '#f97316',
+                  secondary: '#fff',
+                },
+              },
+            }}
+          />
+        </AppProvider>
+      </div>
+    </div>
   );
 }
