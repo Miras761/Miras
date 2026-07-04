@@ -18,6 +18,14 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+const parseJwt = (token: string) => {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch (e) {
+    return null;
+  }
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -27,11 +35,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const storedUser = localStorage.getItem('user');
     if (token) {
       if (storedUser) {
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        if (parsedUser.role !== 'vendor') fetchCart();
       } else {
-        setUser({ id: -1, username: 'Authorized User', email: '' });
+        const decoded = parseJwt(token);
+        const fetchedUser: User = { 
+          id: decoded?.user_id || -1, 
+          username: decoded?.username || 'Authorized User', 
+          email: '', 
+          role: decoded?.role || 'customer' 
+        };
+        setUser(fetchedUser);
+        if (fetchedUser.role !== 'vendor') fetchCart();
       }
-      fetchCart();
     }
   }, []);
 
@@ -39,13 +56,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const { data } = await api.post('/auth/login/', credentials);
       localStorage.setItem('access_token', data.access);
-      localStorage.setItem('refresh_token', data.refresh);
+      if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
       
-      const sessionUser = { id: Date.now(), username: credentials.username, email: '' };
+      const decoded = parseJwt(data.access);
+      const sessionUser: User = { 
+        id: decoded?.user_id || Date.now(), 
+        username: credentials.username, 
+        email: '', 
+        role: decoded?.role || data.role || 'customer' 
+      };
       localStorage.setItem('user', JSON.stringify(sessionUser));
       setUser(sessionUser);
       
-      await fetchCart();
+      if (sessionUser.role === 'customer') {
+        await fetchCart();
+      } else {
+        setCart([]);
+      }
       toast.success('Успешный вход в систему');
     } catch (error) {
       toast.error('Ошибка входа. Проверьте данные.');
@@ -58,7 +85,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await api.post('/auth/register/', credentials);
       toast.success('Регистрация успешна! Пожалуйста, войдите.');
     } catch (error) {
-       toast.error('Ошибка регистрации.');
+       toast.error('Ошибка регистрации. Возможно пользователь существует.');
        throw error;
     }
   };
@@ -73,6 +100,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const fetchCart = async () => {
+    if (user?.role === 'vendor') return;
     try {
       const { data } = await api.get('/cart/');
       setCart(data);
@@ -84,6 +112,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addToCart = async (productId: number) => {
     if (!user) {
       toast.error('Пожалуйста, войдите для добавления в корзину');
+      return;
+    }
+    if (user.role === 'vendor') {
+      toast.error('Продавцы не могут делать покупки');
       return;
     }
     try {
